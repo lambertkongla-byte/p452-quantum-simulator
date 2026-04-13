@@ -1,3 +1,4 @@
 cmake
 ninja-build
 zlib1g-dev
+libsymengine-dev

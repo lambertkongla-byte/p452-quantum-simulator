@@ -2,7 +2,7 @@
 
 A full-stack 10-qubit quantum simulator built for PHYS 452 at the University of Chicago.
 
-**Live App:** [Click to open](https://p452-quantum-simulator-nu6fukmu2jbfn53a5bgmbe.streamlit.app/]
+**Live App:** [Click to open](https://p452-quantum-simulator-nu6fukmu2jbfn53a5bgmbe.streamlit.app/])
 **GitHub:** [lambertkongla-byte/p452-quantum-simulator](https://github.com/lambertkongla-byte/p452-quantum-simulator)
 
 ---

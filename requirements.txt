@@ -1,7 +1,6 @@
-qiskit==1.2.4
-qiskit-aer==0.14.2
-streamlit==1.32.0
-matplotlib==3.8.4
-numpy==1.26.4
-pylatexenc==2.10
-pillow==10.4.0
+qiskit==1.4.5
+qiskit-aer==0.17.2
+streamlit>=1.30.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+pylatexenc>=2.10

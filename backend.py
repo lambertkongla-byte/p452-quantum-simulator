@@ -1,5 +1,5 @@
 """
-backend.py  -  10-qubit Qiskit-Aer simulator backend
+backend.py  -  10-qubit Qiskit-Aer simulator backend (Qiskit 2.x compatible)
 """
 
 import numpy as np
@@ -69,13 +69,13 @@ def build_superposition_201_425() -> QuantumCircuit:
     for pos in range(n):
         if bits_a[pos] == "1":
             qc.x(qubit_idx(pos))
-    qc.barrier(label="State A prepared")
+    qc.barrier()
 
     ctrl_q = diff_b_only[0] if diff_b_only else diff_a_only[0]
     if ctrl_q in diff_a_only:
         qc.x(ctrl_q)
     qc.h(ctrl_q)
-    qc.barrier(label="H applied")
+    qc.barrier()
 
     for q in diff_a_only:
         if q != ctrl_q:
@@ -83,13 +83,13 @@ def build_superposition_201_425() -> QuantumCircuit:
     for q in diff_b_only:
         if q != ctrl_q:
             qc.cx(ctrl_q, q)
-    qc.barrier(label="Superposition ready")
+    qc.barrier()
     return qc
 
 
 def build_cnot_chain_circuit() -> QuantumCircuit:
     qc = build_superposition_201_425()
-    qc.barrier(label="CNOT Chain Start")
+    qc.barrier()
     for i in range(TOTAL_QUBITS - 1):
         qc.cx(i, i + 1)
     return qc
@@ -97,13 +97,13 @@ def build_cnot_chain_circuit() -> QuantumCircuit:
 
 def build_reverse_cnot_chain_circuit() -> QuantumCircuit:
     qc = build_cnot_chain_circuit()
-    qc.barrier(label="Inverse Chain Start")
+    qc.barrier()
     for i in range(TOTAL_QUBITS - 2, -1, -1):
         qc.cx(i, i + 1)
     return qc
 
 
-# Q2.1 - Teleportation (using c_if for Qiskit 1.x compatibility)
+# Q2.1 - Teleportation (c_if compatible with Qiskit 2.x)
 def build_teleportation_circuit(alpha=None, beta=None) -> QuantumCircuit:
     if alpha is None:
         alpha = 2 / np.sqrt(5)
@@ -119,19 +119,18 @@ def build_teleportation_circuit(alpha=None, beta=None) -> QuantumCircuit:
 
     theta = 2 * np.arccos(np.clip(float(np.real(alpha)), -1, 1))
     qc.ry(theta, qr[0])
-    qc.barrier(label="Alice state ready")
+    qc.barrier()
 
     qc.h(qr[1])
     qc.cx(qr[1], qr[2])
-    qc.barrier(label="Bell State Preparation")
+    qc.barrier()
 
     qc.cx(qr[0], qr[1])
     qc.h(qr[0])
-    qc.barrier(label="Bell Measurement")
+    qc.barrier()
     qc.measure(qr[0], cr[0])
     qc.measure(qr[1], cr[1])
 
-    # c_if is the correct syntax for conditional gates in Qiskit 1.x
     qc.x(qr[2]).c_if(cr[1], 1)
     qc.z(qr[2]).c_if(cr[0], 1)
 
@@ -144,14 +143,14 @@ def build_long_distance_cnot(control: int = 0, target: int = 4,
     qc = QuantumCircuit(n_qubits)
     steps = list(range(target - 1, control, -1))
 
-    qc.barrier(label="SWAP target toward control")
+    qc.barrier()
     for i in steps:
         qc.swap(i, i + 1)
 
-    qc.barrier(label="Core CNOT")
+    qc.barrier()
     qc.cx(control, control + 1)
 
-    qc.barrier(label="Reverse SWAPs")
+    qc.barrier()
     for i in reversed(steps):
         qc.swap(i, i + 1)
 

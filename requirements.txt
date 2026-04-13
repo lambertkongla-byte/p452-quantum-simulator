@@ -1,6 +1,6 @@
-qiskit==1.2.4
-qiskit-aer==0.15.1
-streamlit==1.40.1
+qiskit>=1.0.0,<2.0.0
+qiskit-aer>=0.13.0
+streamlit>=1.30.0
 matplotlib>=3.7.0
 numpy>=1.24.0
-pylatexenc==2.10
+pylatexenc>=2.10

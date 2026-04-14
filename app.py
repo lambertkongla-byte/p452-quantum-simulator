@@ -150,8 +150,8 @@ Adjust **J** and **U** in the sidebar. Select an initial state below and run the
 
     init_state = st.selectbox(
         "Initial state",
-        ["1000 — one ↑ electron at Site 1",
-         "1100 — both electrons at Site 1",
+        ["1000 — one ↓ electron at Site 2",
+         "1100 — ↑ and ↓ at Site 2 (doublon)",
          "1001 — ↑ at Site 1, ↓ at Site 2"],
     )
     init_bits = init_state.split(" ")[0]
@@ -189,14 +189,26 @@ Adjust **J** and **U** in the sidebar. Select an initial state below and run the
                 n_trotter_steps=n_steps,
             )
 
-        # Show top 4 most populated states
-        avg_pop = {k: np.mean(v) for k, v in probs.items()}
+        # Filter to states that conserve particle number
+        # Qubit encoding: q0=site1↑, q1=site1↓, q2=site2↑, q3=site2↓
+        # State string 'b3 b2 b1 b0': index 0→q3, index 1→q2, index 2→q1, index 3→q0
+        n_up_init   = int(init_bits[3]) + int(init_bits[1])   # q0 + q2
+        n_down_init = int(init_bits[2]) + int(init_bits[0])   # q1 + q3
+        physical = {}
+        for state, prob_arr in probs.items():
+            n_up   = int(state[3]) + int(state[1])   # q0 + q2
+            n_down = int(state[2]) + int(state[0])   # q1 + q3
+            if n_up == n_up_init and n_down == n_down_init:
+                physical[state] = prob_arr
+
+        # Show top 4 physical states by average population
+        avg_pop = {k: np.mean(v) for k, v in physical.items()}
         top4 = sorted(avg_pop, key=avg_pop.get, reverse=True)[:4]
 
         colors = ["#4C72B0", "#DD8452", "#2ca02c", "#9467bd"]
         fig_ev, ax = plt.subplots(figsize=(8, 4))
         for state, color in zip(top4, colors):
-            ax.plot(times, probs[state], "o-", color=color,
+            ax.plot(times, physical[state], "o-", color=color,
                     markersize=3, label=f"|{state}⟩")
         ax.set_xlabel(r"Time $\tau$", fontsize=12)
         ax.set_ylabel("Probability", fontsize=12)
@@ -356,7 +368,7 @@ Matches Rabi oscillation $P(\tau)=\sin^2(J\tau)$ of a two-level system with coup
 
 elif preset == "Q3.3 – Mott Insulator Physics":
     st.header("Q3.3 – Strong Interactions & Mott Physics")
-    st.markdown(r"$U=10$, $J=1$. Initial state $|1100\rangle$ (both electrons at Site 1).")
+    st.markdown(r"$U=10$, $J=1$. Initial state $|1100\rangle$ (both electrons at Site 2).")
     n_pts = st.slider("Time points", 20, 80, 40, 10)
     n_stp = st.slider("Trotter steps", 5, 40, 20, 5)
     if st.button("▶  Run"):

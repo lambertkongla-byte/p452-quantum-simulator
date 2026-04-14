@@ -30,10 +30,10 @@ def _rxx(qc: QuantumCircuit, theta: float, q0: int, q1: int):
     """
     RXX(theta) = exp(-i theta/2 * X⊗X)
     Implements the XX part of the hopping term.
-    Decomposition: CNOT · Rx(theta) · CNOT
+    Decomposition: CNOT(q0,q1) · Rx(theta, q0) · CNOT(q0,q1)
     """
     qc.cx(q0, q1)
-    qc.rx(theta, q1)
+    qc.rx(theta, q0)
     qc.cx(q0, q1)
 
 
@@ -41,11 +41,11 @@ def _ryy(qc: QuantumCircuit, theta: float, q0: int, q1: int):
     """
     RYY(theta) = exp(-i theta/2 * Y⊗Y)
     Implements the YY part of the hopping term.
-    Decomposition: (S·CNOT) basis change · Rx(theta) · inverse
+    Decomposition: S(q0)·S(q1) · CNOT(q0,q1) · Rx(theta, q0) · CNOT(q0,q1) · Sdg(q0)·Sdg(q1)
     """
     qc.s(q0);  qc.s(q1)
     qc.cx(q0, q1)
-    qc.rx(theta, q1)
+    qc.rx(theta, q0)
     qc.cx(q0, q1)
     qc.sdg(q0); qc.sdg(q1)
 

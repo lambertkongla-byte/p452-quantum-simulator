@@ -83,7 +83,8 @@ preset = st.sidebar.selectbox(
 # 2. Parameter slider (changes meaning based on preset)
 st.sidebar.markdown("---")
 if preset == "Teleportation" or preset == "Q1.2 – Ry(θ)–CNOT" or preset == "Q2.3 – Teleportation Statistics":
-    theta = st.sidebar.slider("Rotation angle θ (rad)", 0.0, float(2*np.pi), float(np.pi), 0.01)
+    default_theta = float(np.pi) if preset != "Teleportation" else float(2 * np.arctan(0.5))
+    theta = st.sidebar.slider("Rotation angle θ (rad)", 0.0, float(2*np.pi), default_theta, 0.01)
     st.sidebar.latex(r"\theta = " + f"{theta:.3f}" + r"\ \text{rad} \approx " + f"{theta/np.pi:.3f}" + r"\pi")
 elif preset in ("Hubbard Model", "Q3.1 – Trotter Circuit", "Q3.2 – Non-Interacting Dynamics", "Q3.3 – Mott Insulator Physics"):
     J_val = st.sidebar.slider("Hopping amplitude J", 0.1, 3.0, 1.0, 0.1)
@@ -104,15 +105,29 @@ st.sidebar.info("Use the **Preset** dropdown to switch circuits. Sliders update 
 #  PRESET: TELEPORTATION  (Q2.1)
 # ══════════════════════════════════════════════════════════════
 if preset == "Teleportation":
-    st.header("🔀 Quantum Teleportation")
-    st.markdown(r"""
-Alice teleports $|q_0\rangle = \frac{1}{\sqrt{5}}(2|0\rangle + |1\rangle)$ to Bob
-using a shared Bell pair. Adjust **θ** in the sidebar to change Alice's input state.
-    """)
+    st.header("🔀 Quantum Teleportation (Q2.1)")
 
     alpha = np.cos(theta / 2)
     beta  = np.sin(theta / 2)
-    st.markdown(f"**Current state:** α = `{alpha:.3f}`, β = `{beta:.3f}`")
+
+    st.markdown(r"""
+Alice prepares a qubit in the state $|q_0\rangle = \alpha|0\rangle + \beta|1\rangle$ and teleports it to Bob
+using a shared Bell pair.  
+**Default** (θ ≈ 0.927): reproduces the assignment state $|q_0\rangle = \frac{1}{\sqrt{5}}(2|0\rangle + |1\rangle)$.
+    """)
+
+    st.latex(
+        r"|q_0\rangle = "
+        + f"{alpha:.4f}"
+        + r"\,|0\rangle + "
+        + f"{beta:.4f}"
+        + r"\,|1\rangle"
+    )
+    st.markdown(
+        f"where **α = cos(θ/2) = {alpha:.4f}**, **β = sin(θ/2) = {beta:.4f}**  \n"
+        f"Measurement probabilities: P(|0⟩) = |α|² = **{abs(alpha)**2:.1%}**, "
+        f"P(|1⟩) = |β|² = **{abs(beta)**2:.1%}**"
+    )
 
     qc_tp = build_teleportation_circuit(alpha=alpha, beta=beta)
 
@@ -125,18 +140,67 @@ using a shared Bell pair. Adjust **θ** in the sidebar to change Alice's input s
     with col2:
         st.subheader("Stage Labels")
         st.markdown("""
-| Stage | Gates |
-|-------|-------|
-| Alice state ready | Ry(θ) on q0 |
-| Bell State Preparation | H + CNOT on q1,q2 |
-| Bell Measurement | CNOT + H on q0,q1 |
-| Classical corrections | X/Z on q2 conditioned on c0,c1 |
+| Stage | Gates | Barrier Label |
+|-------|-------|---------------|
+| Alice state prep | Ry(θ) on q0 | *Alice State Prep* |
+| Bell State Preparation | H + CNOT on q1,q2 | *Bell State Prep* |
+| Bell Measurement | CNOT + H on q0,q1 | *Bell Measurement* |
+| Classical corrections | X/Z on q2 conditioned on c0,c1 | — |
         """)
-        st.subheader("Run Simulation")
-        if st.button("▶  Run"):
-            counts = run_circuit(qc_tp, shots=shots)
-            fig_h = plot_histogram(counts, title=f"Teleportation  |  {shots} shots")
-            st.pyplot(fig_h); plt.close(fig_h)
+
+    st.subheader("Verification: Run Teleportation")
+    if st.button("▶  Run"):
+        # Build circuit with separate Bob measurement register
+        from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit as QC
+        qr = QuantumRegister(3, "q")
+        ca = ClassicalRegister(2, "ca")
+        cb = ClassicalRegister(1, "cb")
+        qc_v = QC(qr, ca, cb)
+
+        # Alice state prep
+        th = 2 * np.arccos(np.clip(float(alpha), -1, 1))
+        qc_v.ry(th, qr[0])
+
+        # Bell pair
+        qc_v.h(qr[1]); qc_v.cx(qr[1], qr[2])
+
+        # Bell measurement
+        qc_v.cx(qr[0], qr[1]); qc_v.h(qr[0])
+        qc_v.measure(qr[0], ca[0]); qc_v.measure(qr[1], ca[1])
+
+        # Classical corrections
+        qc_v.x(qr[2]).c_if(ca[1], 1)
+        qc_v.z(qr[2]).c_if(ca[0], 1)
+
+        # Measure Bob
+        qc_v.measure(qr[2], cb[0])
+
+        from backend import simulator
+        counts = simulator.run(qc_v, shots=shots).result().get_counts()
+
+        # Extract Bob's outcome
+        b0 = sum(v for k, v in counts.items() if k.split(" ")[0] == "0")
+        b1 = sum(v for k, v in counts.items() if k.split(" ")[0] == "1")
+        total = b0 + b1
+
+        col1, col2 = st.columns(2)
+        col1.metric("Bob P(|0⟩)", f"{b0/total*100:.1f}%", f"Expected: {abs(alpha)**2*100:.1f}%")
+        col2.metric("Bob P(|1⟩)", f"{b1/total*100:.1f}%", f"Expected: {abs(beta)**2*100:.1f}%")
+
+        fig, ax = plt.subplots(figsize=(5, 3.5))
+        x = ["Bob |0⟩", "Bob |1⟩"]
+        measured = [b0/total, b1/total]
+        expected = [abs(alpha)**2, abs(beta)**2]
+        ax.bar(x, measured, color="#4C72B0", alpha=0.8, label="Measured")
+        ax.bar(x, expected, color="red", alpha=0.3, edgecolor="red", linewidth=2, label="Expected")
+        ax.set_ylim(0, 1.1); ax.set_ylabel("Probability")
+        ax.set_title(f"Bob's outcome | {shots} shots")
+        ax.legend()
+        plt.tight_layout(); st.pyplot(fig); plt.close()
+        st.markdown(r"""
+**Result:** Bob's qubit reproduces Alice's original state $\alpha|0\rangle + \beta|1\rangle$.  
+The measured probabilities match $|\alpha|^2$ and $|\beta|^2$ within shot noise $\sim 1/\sqrt{N}$.
+        """)
 
 # ══════════════════════════════════════════════════════════════
 #  PRESET: HUBBARD MODEL  (Q3)
@@ -150,8 +214,8 @@ Adjust **J** and **U** in the sidebar. Select an initial state below and run the
 
     init_state = st.selectbox(
         "Initial state",
-        ["1000 — one ↓ electron at Site 2",
-         "1100 — ↑ and ↓ at Site 2 (doublon)",
+        ["1000 — one ↑ electron at Site 1",
+         "1100 — ↑ and ↓ at Site 1 (doublon)",
          "1001 — ↑ at Site 1, ↓ at Site 2"],
     )
     init_bits = init_state.split(" ")[0]
@@ -190,14 +254,14 @@ Adjust **J** and **U** in the sidebar. Select an initial state below and run the
             )
 
         # Filter to states that conserve particle number
-        # Qubit encoding: q0=site1↑, q1=site1↓, q2=site2↑, q3=site2↓
-        # State string 'b3 b2 b1 b0': index 0→q3, index 1→q2, index 2→q1, index 3→q0
-        n_up_init   = int(init_bits[3]) + int(init_bits[1])   # q0 + q2
-        n_down_init = int(init_bits[2]) + int(init_bits[0])   # q1 + q3
+        # PDF convention: state string q0 q1 q2 q3
+        # q0=site1↑, q1=site1↓, q2=site2↑, q3=site2↓
+        n_up_init   = int(init_bits[0]) + int(init_bits[2])   # q0 + q2
+        n_down_init = int(init_bits[1]) + int(init_bits[3])   # q1 + q3
         physical = {}
         for state, prob_arr in probs.items():
-            n_up   = int(state[3]) + int(state[1])   # q0 + q2
-            n_down = int(state[2]) + int(state[0])   # q1 + q3
+            n_up   = int(state[0]) + int(state[2])
+            n_down = int(state[1]) + int(state[3])
             if n_up == n_up_init and n_down == n_down_init:
                 physical[state] = prob_arr
 
@@ -368,7 +432,7 @@ Matches Rabi oscillation $P(\tau)=\sin^2(J\tau)$ of a two-level system with coup
 
 elif preset == "Q3.3 – Mott Insulator Physics":
     st.header("Q3.3 – Strong Interactions & Mott Physics")
-    st.markdown(r"$U=10$, $J=1$. Initial state $|1100\rangle$ (both electrons at Site 2).")
+    st.markdown(r"$U=10$, $J=1$. Initial state $|1100\rangle$ (both electrons at Site 1).")
     n_pts = st.slider("Time points", 20, 80, 40, 10)
     n_stp = st.slider("Trotter steps", 5, 40, 20, 5)
     if st.button("▶  Run"):

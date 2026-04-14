@@ -41,7 +41,7 @@ def _ryy(qc: QuantumCircuit, theta: float, q0: int, q1: int):
     """
     RYY(theta) = exp(-i theta/2 * Y⊗Y)
     Implements the YY part of the hopping term.
-    Decomposition: S(q0)·S(q1) · CNOT(q0,q1) · Rx(theta, q0) · CNOT(q0,q1) · Sdg(q0)·Sdg(q1)
+    Decomposition: S·S · CNOT(q0,q1) · Rx(theta, q0) · CNOT(q0,q1) · Sdg·Sdg
     """
     qc.s(q0);  qc.s(q1)
     qc.cx(q0, q1)
@@ -188,9 +188,9 @@ def evolve(initial_state: str, J: float, U: float,
         qc = QuantumCircuit(4)
 
         # Prepare initial state
-        # initial_state string: '1000' means bit3=1,bit2=0,bit1=0,bit0=0
-        # Qiskit qubit ordering: q0=rightmost bit
-        for qubit_idx, bit in enumerate(reversed(initial_state)):
+        # PDF convention: '1000' means q0=1, q1=0, q2=0, q3=0
+        # String position i corresponds to qubit i
+        for qubit_idx, bit in enumerate(initial_state):
             if bit == "1":
                 qc.x(qubit_idx)
 
@@ -205,9 +205,11 @@ def evolve(initial_state: str, J: float, U: float,
         sv = np.array(job.result().get_statevector())
 
         # Compute probabilities for each basis state
+        # Qiskit label format(i,'04b') = q3q2q1q0; PDF convention = q0q1q2q3
         for i, amp in enumerate(sv):
-            label = format(i, "04b")
-            all_probs[label][t_idx] = abs(amp) ** 2
+            qiskit_label = format(i, "04b")       # q3 q2 q1 q0
+            pdf_label = qiskit_label[::-1]          # q0 q1 q2 q3
+            all_probs[pdf_label][t_idx] = abs(amp) ** 2
 
     return times, all_probs
 

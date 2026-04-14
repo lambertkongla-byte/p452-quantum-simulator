@@ -117,20 +117,24 @@ def build_teleportation_circuit(alpha=None, beta=None) -> QuantumCircuit:
     cr = ClassicalRegister(2, "c")
     qc = QuantumCircuit(qr, cr)
 
+    # Stage 1: Prepare Alice's state
     theta = 2 * np.arccos(np.clip(float(np.real(alpha)), -1, 1))
     qc.ry(theta, qr[0])
-    qc.barrier()
+    qc.barrier(label="Alice State Prep")
 
+    # Stage 2: Bell State Preparation (shared entangled pair q1,q2)
     qc.h(qr[1])
     qc.cx(qr[1], qr[2])
-    qc.barrier()
+    qc.barrier(label="Bell State Prep")
 
+    # Stage 3: Bell Measurement (Alice measures q0,q1)
     qc.cx(qr[0], qr[1])
     qc.h(qr[0])
-    qc.barrier()
+    qc.barrier(label="Bell Measurement")
     qc.measure(qr[0], cr[0])
     qc.measure(qr[1], cr[1])
 
+    # Stage 4: Classical corrections on Bob's qubit (q2)
     qc.x(qr[2]).c_if(cr[1], 1)
     qc.z(qr[2]).c_if(cr[0], 1)
 
